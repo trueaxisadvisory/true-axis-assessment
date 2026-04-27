@@ -1,0 +1,173 @@
+name: Sync Assessment Data from Formspree
+
+on:
+  repository_dispatch:
+    types: [form_submission]
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync-assessments:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Fetch Formspree submissions
+        id: fetch
+        run: |
+          node << 'NODEEOF'
+          const https = require('https');
+          const fs = require('fs');
+          const path = require('path');
+
+          const FORMSPREE_API_KEY = process.env.FORMSPREE_API_KEY;
+          const FORM_ID = 'xdaydzgy';
+
+          function getStatus(score) {
+            if (score >= 17) return 'Aligned';
+            if (score >= 13) return 'Monitor';
+            return 'Action Required';
+          }
+
+          async function fetchSubmissions() {
+            return new Promise((resolve, reject) => {
+              const options = {
+                hostname: 'api.formspree.io',
+                path: `/submissions/${FORM_ID}`,
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${FORMSPREE_API_KEY}`,
+                  'User-Agent': 'GitHub-Actions'
+                }
+              };
+
+              const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try {
+                    resolve(JSON.parse(data));
+                  } catch (e) {
+                    reject(e);
+                  }
+                });
+              });
+
+              req.on('error', reject);
+              req.end();
+            });
+          }
+
+          async function main() {
+            try {
+              console.log('Fetching submissions from Formspree...');
+              const response = await fetchSubmissions();
+              const submissions = response.submissions || [];
+              
+              console.log(`Found ${submissions.length} submissions`);
+
+              // Parse submissions
+              const respondents = submissions
+                .filter(s => s.data && s.data.clarity_score)  // Only complete assessments
+                .map(s => {
+                  const data = s.data;
+                  return {
+                    respondent_name: data.respondent_name || null,
+                    organization: data.organization || null,
+                    respondent_title: data.respondent_title || null,
+                    respondent_email: data.respondent_email || null,
+                    clarity_score: parseInt(data.clarity_score) || 0,
+                    clarity_status: getStatus(parseInt(data.clarity_score)),
+                    execution_score: parseInt(data.execution_score) || 0,
+                    execution_status: getStatus(parseInt(data.execution_score)),
+                    ownership_score: parseInt(data.ownership_score) || 0,
+                    ownership_status: getStatus(parseInt(data.ownership_score)),
+                    challenge_score: parseInt(data.challenge_score) || 0,
+                    challenge_status: getStatus(parseInt(data.challenge_score)),
+                    timestamp: s.submitted_at,
+                    submission_status: (data.respondent_name && data.organization && data.respondent_title) ? 'Complete' : 'Incomplete'
+                  };
+                });
+
+              // Calculate axis averages (complete submissions only)
+              const complete = respondents.filter(r => r.submission_status === 'Complete');
+              const clarity_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.clarity_score, 0) / complete.length).toFixed(1) : 0;
+              const execution_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.execution_score, 0) / complete.length).toFixed(1) : 0;
+              const ownership_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.ownership_score, 0) / complete.length).toFixed(1) : 0;
+              const challenge_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.challenge_score, 0) / complete.length).toFixed(1) : 0;
+
+              // Calculate date range
+              const timestamps = respondents.map(r => new Date(r.timestamp));
+              const minDate = timestamps.length > 0 ? new Date(Math.min(...timestamps)) : new Date();
+              const maxDate = timestamps.length > 0 ? new Date(Math.max(...timestamps)) : new Date();
+              const dateRange = `${minDate.getMonth()+1}/${minDate.getDate()}/${minDate.getFullYear()} to ${maxDate.getMonth()+1}/${maxDate.getDate()}/${maxDate.getFullYear()}`;
+
+              // Count organizations
+              const orgs = new Set(respondents.filter(r => r.organization).map(r => r.organization));
+
+              // Generate output
+              const now = new Date();
+              const generatedTime = now.toISOString().replace('T', ' ').replace('Z', ' UTC').slice(0, -4) + ' UTC';
+
+              const output = {
+                generated: generatedTime,
+                total_respondents: respondents.length,
+                total_organizations: orgs.size,
+                date_range: dateRange,
+                respondents: respondents,
+                axis_averages: {
+                  clarity: parseFloat(clarity_avg),
+                  execution: parseFloat(execution_avg),
+                  ownership: parseFloat(ownership_avg),
+                  challenge: parseFloat(challenge_avg)
+                }
+              };
+
+              // Ensure data directory exists
+              const dataDir = path.join(process.cwd(), 'data');
+              if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
+              }
+
+              // Write assessments.json
+              fs.writeFileSync(
+                path.join(dataDir, 'assessments.json'),
+                JSON.stringify(output, null, 2)
+              );
+
+              console.log('✓ Updated assessments.json');
+              console.log(`  - Total respondents: ${respondents.length}`);
+              console.log(`  - Organizations: ${orgs.size}`);
+              console.log(`  - Clarity avg: ${clarity_avg}/20`);
+              console.log(`  - Execution avg: ${execution_avg}/20`);
+              console.log(`  - Ownership avg: ${ownership_avg}/20`);
+              console.log(`  - Challenge avg: ${challenge_avg}/20`);
+
+            } catch (error) {
+              console.error('Error:', error.message);
+              process.exit(1);
+            }
+          }
+
+          main();
+          NODEEOF
+        env:
+          FORMSPREE_API_KEY: ${{ secrets.FORMSPREE_API_KEY }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add data/assessments.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update: assessment data sync" && git push)
+
