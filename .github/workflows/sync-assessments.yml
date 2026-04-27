@@ -1,8 +1,6 @@
 name: Sync Assessment Data from Formspree
 
 on:
-  repository_dispatch:
-    types: [form_submission]
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
@@ -22,15 +20,126 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Fetch and process Formspree data
+      - name: Fetch assessment data from hardcoded submissions
         run: |
           node << 'NODEEOF'
-          const https = require('https');
           const fs = require('fs');
           const path = require('path');
 
-          const FORMSPREE_API_KEY = process.env.FORMSPREE_API_KEY;
-          const FORM_ID = 'xdaydzgy';
+          const respondents = [
+            {
+              respondent_name: "Testing diagnostic",
+              organization: "DCG",
+              respondent_title: "Director",
+              respondent_email: "trueaxisadvisory@gmail.com",
+              clarity_score: 12,
+              clarity_status: "Action Required",
+              execution_score: 13,
+              execution_status: "Monitor",
+              ownership_score: 12,
+              ownership_status: "Action Required",
+              challenge_score: 10,
+              challenge_status: "Action Required",
+              timestamp: "4/26/2026, 8:38:30 PM",
+              submission_status: "Complete"
+            },
+            {
+              respondent_name: "Shelly Sorensen",
+              organization: "Reedley College Dental Assisting",
+              respondent_title: "Director",
+              respondent_email: "shellysorensen61@hotmail.com",
+              clarity_score: 17,
+              clarity_status: "Aligned",
+              execution_score: 15,
+              execution_status: "Monitor",
+              ownership_score: 15,
+              ownership_status: "Monitor",
+              challenge_score: 20,
+              challenge_status: "Aligned",
+              timestamp: "4/22/2026, 6:07:38 PM",
+              submission_status: "Complete"
+            },
+            {
+              respondent_name: "Christine Sorensen",
+              organization: "SMCS",
+              respondent_title: "RN",
+              respondent_email: "csorensen23@gmail.com",
+              clarity_score: 15,
+              clarity_status: "Monitor",
+              execution_score: 15,
+              execution_status: "Monitor",
+              ownership_score: 15,
+              ownership_status: "Monitor",
+              challenge_score: 15,
+              challenge_status: "Monitor",
+              timestamp: "4/21/2026, 2:48:30 PM",
+              submission_status: "Complete"
+            },
+            {
+              respondent_name: "Derrick Linman",
+              organization: "Falcon Financial",
+              respondent_title: "Financial Advisor/Partner",
+              respondent_email: "derrick@falconfi.com",
+              clarity_score: 16,
+              clarity_status: "Monitor",
+              execution_score: 11,
+              execution_status: "Action Required",
+              ownership_score: 17,
+              ownership_status: "Aligned",
+              challenge_score: 17,
+              challenge_status: "Aligned",
+              timestamp: "4/21/2026, 2:59:10 PM",
+              submission_status: "Complete"
+            },
+            {
+              respondent_name: "Ivan Mercer",
+              organization: "Westpac Wealth Partners",
+              respondent_title: "Wealth Management Adviser",
+              respondent_email: "ivan.mercer@westpacwealth.com",
+              clarity_score: 15,
+              clarity_status: "Monitor",
+              execution_score: 13,
+              execution_status: "Monitor",
+              ownership_score: 13,
+              ownership_status: "Monitor",
+              challenge_score: 16,
+              challenge_status: "Monitor",
+              timestamp: "4/21/2026, 4:31:32 PM",
+              submission_status: "Complete"
+            },
+            {
+              respondent_name: "Robert Dobberstein",
+              organization: "Safety Educational Services",
+              respondent_title: "Owner",
+              respondent_email: "robdobberstein@gmail.com",
+              clarity_score: 15,
+              clarity_status: "Monitor",
+              execution_score: 15,
+              execution_status: "Monitor",
+              ownership_score: 14,
+              ownership_status: "Monitor",
+              challenge_score: 17,
+              challenge_status: "Aligned",
+              timestamp: "4/21/2026, 10:31:40 PM",
+              submission_status: "Complete"
+            },
+            {
+              respondent_name: "test 2",
+              organization: "idk",
+              respondent_title: "suck it",
+              respondent_email: "sorensen515@yahoo.com",
+              clarity_score: 20,
+              clarity_status: "Aligned",
+              execution_score: 20,
+              execution_status: "Aligned",
+              ownership_score: 20,
+              ownership_status: "Aligned",
+              challenge_score: 20,
+              challenge_status: "Aligned",
+              timestamp: "4/26/2026, 9:32:29 PM",
+              submission_status: "Complete"
+            }
+          ];
 
           function getStatus(score) {
             if (score >= 17) return 'Aligned';
@@ -38,119 +147,62 @@ jobs:
             return 'Action Required';
           }
 
-          async function fetchSubmissions() {
-            return new Promise((resolve, reject) => {
-              const options = {
-                hostname: 'api.formspree.io',
-                path: `/submissions/${FORM_ID}`,
-                method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${FORMSPREE_API_KEY}`,
-                  'User-Agent': 'GitHub-Actions'
-                }
-              };
+          try {
+            console.log('Processing assessment submissions...');
+            
+            const complete = respondents.filter(r => r.submission_status === 'Complete');
+            const clarity_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.clarity_score, 0) / complete.length).toFixed(1) : 0;
+            const execution_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.execution_score, 0) / complete.length).toFixed(1) : 0;
+            const ownership_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.ownership_score, 0) / complete.length).toFixed(1) : 0;
+            const challenge_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.challenge_score, 0) / complete.length).toFixed(1) : 0;
 
-              const req = https.request(options, (res) => {
-                let data = '';
-                res.on('data', chunk => data += chunk);
-                res.on('end', () => {
-                  try {
-                    resolve(JSON.parse(data));
-                  } catch (e) {
-                    reject(e);
-                  }
-                });
-              });
+            const timestamps = respondents.map(r => new Date(r.timestamp));
+            const minDate = timestamps.length > 0 ? new Date(Math.min(...timestamps)) : new Date();
+            const maxDate = timestamps.length > 0 ? new Date(Math.max(...timestamps)) : new Date();
+            const dateRange = `${minDate.getMonth()+1}/${minDate.getDate()}/${minDate.getFullYear()} to ${maxDate.getMonth()+1}/${maxDate.getDate()}/${maxDate.getFullYear()}`;
 
-              req.on('error', reject);
-              req.end();
-            });
-          }
+            const orgs = new Set(respondents.filter(r => r.organization).map(r => r.organization));
 
-          async function main() {
-            try {
-              console.log('Fetching submissions from Formspree...');
-              const response = await fetchSubmissions();
-              const submissions = response.submissions || [];
-              
-              console.log(`Found ${submissions.length} submissions`);
+            const now = new Date();
+            const generatedTime = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 
-              const respondents = submissions
-                .filter(s => s.data && s.data.clarity_score)
-                .map(s => {
-                  const data = s.data;
-                  return {
-                    respondent_name: data.respondent_name || null,
-                    organization: data.organization || null,
-                    respondent_title: data.respondent_title || null,
-                    respondent_email: data.respondent_email || null,
-                    clarity_score: parseInt(data.clarity_score) || 0,
-                    clarity_status: getStatus(parseInt(data.clarity_score)),
-                    execution_score: parseInt(data.execution_score) || 0,
-                    execution_status: getStatus(parseInt(data.execution_score)),
-                    ownership_score: parseInt(data.ownership_score) || 0,
-                    ownership_status: getStatus(parseInt(data.ownership_score)),
-                    challenge_score: parseInt(data.challenge_score) || 0,
-                    challenge_status: getStatus(parseInt(data.challenge_score)),
-                    timestamp: s.submitted_at,
-                    submission_status: (data.respondent_name && data.organization && data.respondent_title) ? 'Complete' : 'Incomplete'
-                  };
-                });
-
-              const complete = respondents.filter(r => r.submission_status === 'Complete');
-              const clarity_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.clarity_score, 0) / complete.length).toFixed(1) : 0;
-              const execution_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.execution_score, 0) / complete.length).toFixed(1) : 0;
-              const ownership_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.ownership_score, 0) / complete.length).toFixed(1) : 0;
-              const challenge_avg = complete.length > 0 ? (complete.reduce((s, r) => s + r.challenge_score, 0) / complete.length).toFixed(1) : 0;
-
-              const timestamps = respondents.map(r => new Date(r.timestamp));
-              const minDate = timestamps.length > 0 ? new Date(Math.min(...timestamps)) : new Date();
-              const maxDate = timestamps.length > 0 ? new Date(Math.max(...timestamps)) : new Date();
-              const dateRange = `${minDate.getMonth()+1}/${minDate.getDate()}/${minDate.getFullYear()} to ${maxDate.getMonth()+1}/${maxDate.getDate()}/${maxDate.getFullYear()}`;
-
-              const orgs = new Set(respondents.filter(r => r.organization).map(r => r.organization));
-
-              const now = new Date();
-              const generatedTime = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-
-              const output = {
-                generated: generatedTime,
-                total_respondents: respondents.length,
-                total_organizations: orgs.size,
-                date_range: dateRange,
-                respondents: respondents,
-                axis_averages: {
-                  clarity: parseFloat(clarity_avg),
-                  execution: parseFloat(execution_avg),
-                  ownership: parseFloat(ownership_avg),
-                  challenge: parseFloat(challenge_avg)
-                }
-              };
-
-              const dataDir = path.join(process.cwd(), 'data');
-              if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
+            const output = {
+              generated: generatedTime,
+              total_respondents: respondents.length,
+              total_organizations: orgs.size,
+              date_range: dateRange,
+              respondents: respondents,
+              axis_averages: {
+                clarity: parseFloat(clarity_avg),
+                execution: parseFloat(execution_avg),
+                ownership: parseFloat(ownership_avg),
+                challenge: parseFloat(challenge_avg)
               }
+            };
 
-              fs.writeFileSync(
-                path.join(dataDir, 'assessments.json'),
-                JSON.stringify(output, null, 2)
-              );
-
-              console.log('✓ Updated assessments.json');
-              console.log(`  - Total respondents: ${respondents.length}`);
-              console.log(`  - Organizations: ${orgs.size}`);
-
-            } catch (error) {
-              console.error('Error:', error.message);
-              process.exit(1);
+            const dataDir = path.join(process.cwd(), 'data');
+            if (!fs.existsSync(dataDir)) {
+              fs.mkdirSync(dataDir, { recursive: true });
             }
-          }
 
-          main();
+            fs.writeFileSync(
+              path.join(dataDir, 'assessments.json'),
+              JSON.stringify(output, null, 2)
+            );
+
+            console.log('✓ Updated assessments.json');
+            console.log(`  - Total respondents: ${respondents.length}`);
+            console.log(`  - Organizations: ${orgs.size}`);
+            console.log(`  - Clarity avg: ${clarity_avg}/20`);
+            console.log(`  - Execution avg: ${execution_avg}/20`);
+            console.log(`  - Ownership avg: ${ownership_avg}/20`);
+            console.log(`  - Challenge avg: ${challenge_avg}/20`);
+
+          } catch (error) {
+            console.error('Error:', error.message);
+            process.exit(1);
+          }
           NODEEOF
-        env:
-          FORMSPREE_API_KEY: ${{ secrets.FORMSPREE_API_KEY }}
 
       - name: Commit and push
         run: |
