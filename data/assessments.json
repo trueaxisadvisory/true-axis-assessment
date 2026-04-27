@@ -1,0 +1,14 @@
+```json
+{
+  "generated": "2026-04-27 00:00:00 UTC",
+  "total_respondents": 0,
+  "total_organizations": 0,
+  "date_range": "N/A",
+  "respondents": [],
+  "axis_averages": {
+    "clarity": 0,
+    "execution": 0,
+    "ownership": 0,
+    "challenge": 0
+  }
+}
