@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>True Axis Assessment Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f5f5;
+            color: #2c3e50;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: #1a1a1a;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .filters-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+        }
+        .filters-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+        }
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-item label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        .filter-item select,
+        .filter-item input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+            color: #2c3e50;
+        }
+        .filter-item input:focus,
+        .filter-item select:focus {
+            outline: none;
+            border-color: #8e44ad;
+            box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.1);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+        button.apply {
+            background: #8e44ad;
+            color: white;
+            border-color: #8e44ad;
+        }
+        button.apply:hover {
+            background: #7a3896;
+            border-color: #7a3896;
+        }
+        button.reset {
+            background: #e74c3c;
+            color: white;
+            border-color: #e74c3c;
+        }
+        button.reset:hover {
+            background: #c0392b;
+            border-color: #c0392b;
+        }
+        button.refresh {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        button.refresh:hover {
+            background: #2980b9;
+            border-color: #2980b9;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .axes-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        .axis-card {
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid;
+            background: #f9f9f9;
+        }
+        .axis-card.clarity { border-left-color: #8e44ad; }
+        .axis-card.execution { border-left-color: #27ae60; }
+        .axis-card.ownership { border-left-color: #d35400; }
+        .axis-card.challenge { border-left-color: #c0392b; }
+        .axis-name {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .axis-score {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .axis-status {
+            font-size: 11px;
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .status-aligned { background: #d4edda; color: #155724; }
+        .status-monitor { background: #fff3cd; color: #856404; }
+        .status-action { background: #f8d7da; color: #721c24; }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 6px;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        thead {
+            background: #f0f0f0;
+            border-bottom: 2px solid #ddd;
+        }
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        tbody tr:hover {
+            background: #fafafa;
+        }
+        .data-load-status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            border: 1px solid;
+        }
+        .status-loading {
+            background: #e3f2fd;
+            color: #1565c0;
+            border-color: #90caf9;
+        }
+        .status-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #81c784;
+        }
+        .status-error {
+            background: #ffebee;
+            color: #c62828;
+            border-color: #ef5350;
+        }
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .checkbox-item input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+        .checkbox-item label {
+            cursor: pointer;
+            font-size: 13px;
+            margin: 0;
+        }
+        .loading-spinner {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>True Axis Assessment Dashboard</h1>
+        <p class="subtitle">Interactive filtering and analysis of organizational diagnostic assessments</p>
+
+        <div class="data-load-status status-loading" id="loadStatus">
+            <span class="loading-spinner">⟳</span> Loading assessment data...
+        </div>
+
+        <div class="filters-section">
+            <div class="filters-title">Filters</div>
+            
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label for="orgFilter">Organization</label>
+                    <select id="orgFilter">
+                        <option value="">All Organizations</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="titleFilter">Job Title</label>
+                    <select id="titleFilter">
+                        <option value="">All Titles</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="statusFilter">Status</label>
+                    <select id="statusFilter">
+                        <option value="">All Statuses</option>
+                        <option value="Aligned">Aligned</option>
+                        <option value="Monitor">Monitor</option>
+                        <option value="Action Required">Action Required</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label>Axis Scores</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="clarityCheck" checked> <label for="clarityCheck">Clarity</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="executionCheck" checked> <label for="executionCheck">Execution</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="ownershipCheck" checked> <label for="ownershipCheck">Ownership</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="challengeCheck" checked> <label for="challengeCheck">Challenge</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label for="startDate">Start Date</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="filter-item">
+                    <label for="endDate">End Date</label>
+                    <input type="date" id="endDate">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="apply" onclick="applyFilters()">Apply Filters</button>
+                <button class="reset" onclick="resetFilters()">Reset All</button>
+                <button class="refresh" onclick="refreshData()">🔄 Refresh Data</button>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-label">Respondents (Filtered)</div>
+                <div class="stat-value" id="respondentCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Organizations</div>
+                <div class="stat-value" id="orgCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Date Range</div>
+                <div class="stat-value" id="dateRange" style="font-size: 12px;">N/A</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Updated</div>
+                <div class="stat-value" id="lastUpdated" style="font-size: 12px;">—</div>
+            </div>
+        </div>
+
+        <div class="axes-summary" id="axesSummary" style="display: none;"></div>
+
+        <div class="chart-container" id="chartContainer" style="display: none;">
+            <canvas id="scatterChart"></canvas>
+        </div>
+
+        <div class="table-container" id="tableContainer" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Title</th>
+                        <th>Organization</th>
+                        <th>Clarity</th>
+                        <th>Execution</th>
+                        <th>Ownership</th>
+                        <th>Challenge</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allData = null;
+        let filteredData = null;
+        let chartInstance = null;
+
+        // Fetch data from GitHub
+        async function loadData() {
+            try {
+                document.getElementById('loadStatus').innerHTML = '<span class="loading-spinner">⟳</span> Loading assessment data...';
+                document.getElementById('loadStatus').className = 'data-load-status status-loading';
+                
+                const response = await fetch('./data/assessments.json?cachebust=' + Date.now());
+                if (!response.ok) throw new Error('Failed to load data');
+                
+                allData = await response.json();
+                filteredData = JSON.parse(JSON.stringify(allData));
+                
+                document.getElementById('loadStatus').innerHTML = '✓ Data loaded successfully at ' + new Date().toLocaleTimeString();
+                document.getElementById('loadStatus').className = 'data-load-status status-success';
+                
+                initializeFilters();
+                updateDisplay();
+            } catch (error) {
+                document.getElementById('loadStatus').innerHTML = '✗ Error loading data: ' + error.message + '. Ensure assessments.json exists in the data folder.';
+                document.getElementById('loadStatus').className = 'data-load-status status-error';
+                console.error('Data load error:', error);
+            }
+        }
+
+        function refreshData() {
+            location.reload();
+        }
+
+        function parseDate(dateStr) {
+            return new Date(dateStr);
+        }
+
+        function formatDate(dateStr) {
+            const date = parseDate(dateStr);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        }
+
+        function initializeFilters() {
+            const orgs = new Set();
+            const titles = new Set();
+            allData.respondents.forEach(r => {
+                if (r.organization && r.organization !== '[Not Provided]') orgs.add(r.organization);
+                if (r.respondent_title && r.respondent_title !== '[Not Provided]') titles.add(r.respondent_title);
+            });
+
+            const orgSelect = document.getElementById('orgFilter');
+            const titleSelect = document.getElementById('titleFilter');
+            
+            // Clear existing options (keep the first one)
+            while (orgSelect.options.length > 1) orgSelect.remove(1);
+            while (titleSelect.options.length > 1) titleSelect.remove(1);
+            
+            orgs.forEach(org => {
+                const option = document.createElement('option');
+                option.value = org;
+                option.textContent = org;
+                orgSelect.appendChild(option);
+            });
+
+            titles.forEach(title => {
+                const option = document.createElement('option');
+                option.value = title;
+                option.textContent = title;
+                titleSelect.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const org = document.getElementById('orgFilter').value;
+            const title = document.getElementById('titleFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const startDateStr = document.getElementById('startDate').value;
+            const endDateStr = document.getElementById('endDate').value;
+            
+            let startDate = null;
+            let endDate = null;
+            
+            if (startDateStr) {
+                startDate = new Date(startDateStr);
+                startDate.setHours(0, 0, 0, 0);
+            }
+            if (endDateStr) {
+                endDate = new Date(endDateStr);
+                endDate.setHours(23, 59, 59, 999);
+            }
+
+            filteredData = {
+                ...allData,
+                respondents: allData.respondents.filter(r => {
+                    const matchOrg = !org || r.organization === org;
+                    const matchTitle = !title || r.respondent_title === title;
+                    const matchStatus = !status || r.clarity_status === status || r.execution_status === status || r.ownership_status === status || r.challenge_status === status;
+                    const date = parseDate(r.timestamp);
+                    const matchDate = (!startDate || date >= startDate) && (!endDate || date <= endDate);
+                    
+                    return matchOrg && matchTitle && matchStatus && matchDate;
+                })
+            };
+
+            updateDisplay();
+        }
+
+        function resetFilters() {
+            document.getElementById('orgFilter').value = '';
+            document.getElementById('titleFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            filteredData = JSON.parse(JSON.stringify(allData));
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            if (!allData) return;
+            
+            document.getElementById('statsGrid').style.display = 'grid';
+            document.getElementById('axesSummary').style.display = 'grid';
+            document.getElementById('chartContainer').style.display = 'block';
+            document.getElementById('tableContainer').style.display = 'block';
+
+            document.getElementById('respondentCount').textContent = filteredData.respondents.length;
+            const orgs = new Set(filteredData.respondents.map(r => r.organization).filter(o => o && o !== '[Not Provided]'));
+            document.getElementById('orgCount').textContent = orgs.size;
+            document.getElementById('lastUpdated').textContent = new Date(allData.generated).toLocaleString();
+
+            if (filteredData.respondents.length > 0) {
+                const dates = filteredData.respondents.map(r => formatDate(r.timestamp));
+                const uniqueDates = [...new Set(dates)];
+                document.getElementById('dateRange').textContent = uniqueDates.length > 1 ? uniqueDates[0] + ' - ' + uniqueDates[uniqueDates.length - 1] : uniqueDates[0];
+            }
+
+            updateAxisSummaries();
+            updateChart();
+            updateTable();
+        }
+
+        function updateAxisSummaries() {
+            const summary = document.getElementById('axesSummary');
+            summary.innerHTML = '';
+
+            const axes = ['clarity', 'execution', 'ownership', 'challenge'];
+            const axisLabels = ['Clarity', 'Execution', 'Ownership', 'Challenge Diagnosis'];
+            const axisClasses = ['clarity', 'execution', 'ownership', 'challenge'];
+
+            axes.forEach((axis, idx) => {
+                const scores = filteredData.respondents.map(r => r[axis + '_score']).filter(s => s !== undefined);
+                const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b) / scores.length).toFixed(1) : 0;
+                const statusKey = axis + '_status';
+                const statuses = filteredData.respondents.map(r => r[statusKey]).filter(s => s);
+                const mostCommonStatus = statuses.length > 0 ? statuses[0] : 'N/A';
+
+                const card = document.createElement('div');
+                card.className = 'axis-card ' + axisClasses[idx];
+                card.innerHTML = `
+                    <div class="axis-name">${axisLabels[idx]}</div>
+                    <div class="axis-score">${avg}/20</div>
+                    <div class="axis-status status-${mostCommonStatus.toLowerCase().replace(' ', '-')}">${mostCommonStatus}</div>
+                `;
+                summary.appendChild(card);
+            });
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            const axes = ['clarity', 'execution', 'ownership', 'challenge'];
+            const axisLabels = ['Clarity', 'Execution', 'Ownership', 'Challenge'];
+            const colors = ['#8e44ad', '#27ae60', '#d35400', '#c0392b'];
+
+            const showAxes = [
+                document.getElementById('clarityCheck').checked,
+                document.getElementById('executionCheck').checked,
+                document.getElementById('ownershipCheck').checked,
+                document.getElementById('challengeCheck').checked
+            ];
+
+            const datasets = axes.map((axis, idx) => {
+                if (!showAxes[idx]) return null;
+                return {
+                    label: axisLabels[idx],
+                    data: filteredData.respondents.map((r, i) => ({ x: i, y: r[axis + '_score'] })),
+                    borderColor: colors[idx],
+                    backgroundColor: colors[idx] + '33',
+                    tension: 0,
+                    fill: false,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    borderWidth: 2
+                };
+            }).filter(d => d !== null);
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { font: { size: 12 }, usePointStyle: true, padding: 16 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const respondent = filteredData.respondents[ctx.raw.x];
+                                    return (respondent?.respondent_name || 'Unknown') + ': ' + ctx.raw.y + '/20';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: -0.5,
+                            max: Math.max(filteredData.respondents.length - 0.5, 0),
+                            title: { display: true, text: 'Respondent', font: { size: 12 } }
+                        },
+                        y: {
+                            min: 0,
+                            max: 20,
+                            title: { display: true, text: 'Score', font: { size: 12 } },
+                            ticks: { stepSize: 5 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            filteredData.respondents.forEach(r => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${r.respondent_name || '[Incomplete]'}</td>
+                    <td>${r.respondent_title || '[Missing]'}</td>
+                    <td>${r.organization || '[Missing]'}</td>
+                    <td>${r.clarity_score}</td>
+                    <td>${r.execution_score}</td>
+                    <td>${r.ownership_score}</td>
+                    <td>${r.challenge_score}</td>
+                    <td>${formatDate(r.timestamp)}</td>
+                `;
+            });
+        }
+
+        // Load data on page load
+        window.addEventListener('load', loadData);
+    </script>
+</body>
+</html>
